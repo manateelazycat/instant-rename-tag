@@ -6,17 +6,16 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
-;; Version: 0.1
-;; Last-Updated: Wed Jun 26 13:46:04 2019 (-0400)
-;;           By: Mingde (Matthew) Zeng
+;; Version: 0.2
+;; Last-Updated: 2019-06-27 07:38:27
+;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
 ;; Compatibility: GNU Emacs 26.1.92
 ;;
 ;; Features that might be required by this library:
 ;;
-;; `web-mode'
-;; `sgml-mode'
+;; `web-mode' `sgml-mode'
 
 ;;; This file is NOT part of GNU Emacs
 
@@ -66,6 +65,9 @@
 
 ;;; Change log:
 ;;
+;; 2019/06/27
+;;      * Refactory code.
+;;
 ;; 2019/06/26
 ;;      * Use overlay re-implement code.
 ;;
@@ -80,7 +82,8 @@
 
 ;;; TODO
 ;;
-;;
+;; * Try to remove web-mode depend.
+;; * Fix mark wrong place that not include close tag.
 ;;
 
 ;;; Require
@@ -93,7 +96,7 @@
   "Instant rename tag."
   :group 'instant-rename-tag)
 
-(defface instant-rename-tag-mark
+(defface instant-rename-tag-mark-face
   '((t (:foreground "White" :background "#007aff" :bold t)))
   "Face tag."
   :group 'instant-rename-tag)
@@ -101,19 +104,21 @@
 (defun instant-rename-tag ()
   (interactive)
   (cond ((instant-rename-tag-in-open-tag-p)
-         (if (and (boundp 'instant-rename-is-mark)
-                  instant-rename-is-mark)
-             (instant-rename-unmark-tag)
-           (instant-rename-mark-tag)))
+         (if (instant-rename-tag-is-marking)
+             (instant-rename-tag-unmark)
+           (instant-rename-tag-mark)))
         ((instant-rename-tag-in-close-tag-p)
-         (if (and (boundp 'instant-rename-is-mark)
-                  instant-rename-is-mark)
-             (instant-rename-unmark-tag)
-           (instant-rename-mark-tag)))
+         (if (instant-rename-tag-is-marking)
+             (instant-rename-tag-unmark)
+           (instant-rename-tag-mark)))
         (t
          (message "Not in tag area."))))
 
-(defun instant-rename-mark-tag ()
+(defun instant-rename-tag-is-marking ()
+  (and (boundp 'instant-rename-tag-is-mark)
+       instant-rename-tag-is-mark))
+
+(defun instant-rename-tag-mark ()
   (ignore-errors
     (let* ((open-tag-pos (save-excursion
                            (web-mode-element-beginning)
@@ -128,8 +133,8 @@
                         (forward-symbol 1))
                       (point))))
       (when (and start-pos end-pos)
-        (set (make-local-variable 'instant-rename-open-tag-overlay) (make-overlay start-pos end-pos))
-        (overlay-put instant-rename-open-tag-overlay 'face 'instant-rename-tag-mark)
+        (set (make-local-variable 'instant-rename-tag-open-overlay) (make-overlay start-pos end-pos))
+        (overlay-put instant-rename-tag-open-overlay 'face 'instant-rename-tag-mark-face)
         )))
 
   (ignore-errors
@@ -146,23 +151,23 @@
                         (forward-symbol 1))
                       (point))))
       (when (and start-pos end-pos)
-        (set (make-local-variable 'instant-rename-close-tag-overlay) (make-overlay start-pos end-pos))
-        (overlay-put instant-rename-close-tag-overlay 'face 'instant-rename-tag-mark)
+        (set (make-local-variable 'instant-rename-tag-close-overlay) (make-overlay start-pos end-pos))
+        (overlay-put instant-rename-tag-close-overlay 'face 'instant-rename-tag-mark-face)
         )))
 
-  (set (make-local-variable 'instant-rename-is-mark) t)
+  (set (make-local-variable 'instant-rename-tag-is-mark) t)
   )
 
-(defun instant-rename-unmark-tag ()
-  (when instant-rename-open-tag-overlay
-    (delete-overlay instant-rename-open-tag-overlay)
-    (set (make-local-variable 'instant-rename-open-tag-overlay) nil))
+(defun instant-rename-tag-unmark ()
+  (when instant-rename-tag-open-overlay
+    (delete-overlay instant-rename-tag-open-overlay)
+    (set (make-local-variable 'instant-rename-tag-open-overlay) nil))
 
-  (when instant-rename-close-tag-overlay
-    (delete-overlay instant-rename-close-tag-overlay)
-    (set (make-local-variable 'instant-rename-close-tag-overlay) nil))
+  (when instant-rename-tag-close-overlay
+    (delete-overlay instant-rename-tag-close-overlay)
+    (set (make-local-variable 'instant-rename-tag-close-overlay) nil))
 
-  (set (make-local-variable 'instant-rename-is-mark) nil))
+  (set (make-local-variable 'instant-rename-tag-is-mark) nil))
 
 (defun instant-rename-tag-in-open-tag-p ()
   (let ((open-tag-pos (save-excursion
@@ -195,17 +200,15 @@
 (defun instant-rename-tag-after-change-function (begin end length)
   (when (and
          (derived-mode-p 'web-mode)
-         (boundp 'instant-rename-is-mark)
-         instant-rename-is-mark
-         instant-rename-open-tag-overlay
-         instant-rename-close-tag-overlay
-         )
+         (instant-rename-tag-is-marking)
+         instant-rename-tag-open-overlay
+         instant-rename-tag-close-overlay)
     (let* ((disable-company-mode (when (featurep 'company-mode)
                                    (company-mode -1)))
-           (open-tag-start-pos (overlay-start instant-rename-open-tag-overlay))
-           (open-tag-end-pos (overlay-end instant-rename-open-tag-overlay))
-           (close-tag-start-pos (overlay-start instant-rename-close-tag-overlay))
-           (close-tag-end-pos (overlay-end instant-rename-close-tag-overlay)))
+           (open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
+           (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
+           (close-tag-start-pos (overlay-start instant-rename-tag-close-overlay))
+           (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay)))
       (cond ((and (>= (point) open-tag-start-pos)
                   (<= (point) (+ 1 open-tag-end-pos)))
              (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
@@ -213,8 +216,8 @@
                  (delete-region close-tag-start-pos close-tag-end-pos)
                  (goto-char close-tag-start-pos)
                  (insert new-tag)
-                 (move-overlay instant-rename-open-tag-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
-                 (move-overlay instant-rename-close-tag-overlay (- (point) (length new-tag)) (point))
+                 (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
+                 (move-overlay instant-rename-tag-close-overlay (- (point) (length new-tag)) (point))
                  )))
             ((and (>= (point) close-tag-start-pos)
                   (<= (point) (+ 1 close-tag-end-pos)))
@@ -227,8 +230,8 @@
                  (delete-region open-tag-start-pos open-tag-end-pos)
                  (goto-char open-tag-start-pos)
                  (insert new-tag)
-                 (move-overlay instant-rename-close-tag-overlay close-tag-new-start-pos (+ close-tag-new-start-pos (length new-tag)))
-                 (move-overlay instant-rename-open-tag-overlay (- (point) (length new-tag)) (point))))
+                 (move-overlay instant-rename-tag-close-overlay close-tag-new-start-pos (+ close-tag-new-start-pos (length new-tag)))
+                 (move-overlay instant-rename-tag-open-overlay (- (point) (length new-tag)) (point))))
              )))))
 
 (add-hook 'after-change-functions #'instant-rename-tag-after-change-function)
