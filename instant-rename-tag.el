@@ -7,8 +7,8 @@
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
 ;; Version: 0.1
-;; Last-Updated: 2019-03-14 22:14:00
-;;           By: Andy Stewart
+;; Last-Updated: Wed Jun 26 13:46:04 2019 (-0400)
+;;           By: Mingde (Matthew) Zeng
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
 ;; Compatibility: GNU Emacs 26.1.92
@@ -16,7 +16,7 @@
 ;; Features that might be required by this library:
 ;;
 ;; `web-mode'
-;;
+;; `sgml-mode'
 
 ;;; This file is NOT part of GNU Emacs
 
@@ -85,6 +85,7 @@
 
 ;;; Require
 (require 'web-mode)
+(require 'sgml-mode)
 
 ;;; Code:
 
