@@ -2,6 +2,7 @@
 
 # What is instant-rename-tag?
 It's wonderful if we can rename tag instantly, not rename from minibuffer.
+
 And yes, this plugin is design for do this.
 
 ## Installation
@@ -18,6 +19,6 @@ Note, this plugin depend on ```web-mode```, you need make sure install ```web-mo
 ## Usage
 Bind your favorite key to functions:
 
-| Function           | Description                     |
-| :--------          | :----                           |
-| instant-rename-tag | Rename tag under current cursor |
+| Function           | Description                                                               |
+| :--------          | :----                                                                     |
+| instant-rename-tag | Rename tag under current cursor, call this command again if rename finish |
