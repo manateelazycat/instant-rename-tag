@@ -84,6 +84,7 @@
 ;;
 ;; * Try to remove web-mode depend.
 ;; * Fix mark wrong place that not include close tag.
+;; * Cancel mark after tag area not change, don't need cancel manually.
 ;;
 
 ;;; Require
