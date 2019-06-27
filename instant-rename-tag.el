@@ -121,22 +121,13 @@
 
 (defun instant-rename-tag-mark ()
   (ignore-errors
-    (let* ((open-tag-pos (save-excursion
-                           (web-mode-element-beginning)
-                           (point)))
-           (start-pos (save-excursion
-                        (goto-char open-tag-pos)
-                        (forward-char 1)
-                        (point)))
-           (end-pos (save-excursion
-                      (goto-char start-pos)
-                      (unless (looking-at ">")
-                        (forward-symbol 1))
-                      (point))))
-      (when (and start-pos end-pos)
-        (set (make-local-variable 'instant-rename-tag-open-overlay) (make-overlay start-pos end-pos))
-        (overlay-put instant-rename-tag-open-overlay 'face 'instant-rename-tag-mark-face)
-        )))
+    (let* ((open-tag-bound (instant-rename-tag-get-open-tag-bound)))
+      (if open-tag-bound
+          (let* ((start-pos (nth 0 open-tag-bound))
+                 (end-pos (nth 1 open-tag-bound)))
+            (set (make-local-variable 'instant-rename-tag-open-overlay) (make-overlay start-pos end-pos))
+            (overlay-put instant-rename-tag-open-overlay 'face 'instant-rename-tag-mark-face))
+        (set (make-local-variable 'instant-rename-tag-open-overlay) nil))))
 
   (ignore-errors
     (let ((close-tag-bound (instant-rename-tag-get-close-tag-bound)))
@@ -185,6 +176,23 @@
            (search-backward-regexp "</" close-tag-pos t))
          (not (save-excursion
                 (search-backward-regexp "\\s-" close-tag-pos t))))))
+
+(defun instant-rename-tag-get-open-tag-bound ()
+  (let* ((open-tag-pos (save-excursion
+                         (web-mode-element-beginning)
+                         (point)))
+         (start-pos (save-excursion
+                      (goto-char open-tag-pos)
+                      (forward-char 1)
+                      (point)))
+         (end-pos (save-excursion
+                    (goto-char start-pos)
+                    (unless (looking-at ">")
+                      (forward-symbol 1))
+                    (point))))
+    (if (and start-pos end-pos)
+        (list start-pos end-pos)
+      nil)))
 
 (defun instant-rename-tag-get-close-tag-bound ()
   (save-excursion
