@@ -6,8 +6,8 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
-;; Version: 0.3
-;; Last-Updated: 2019-06-27 14:29:02
+;; Version: 0.4
+;; Last-Updated: 2019-06-27 14:54:14
 ;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
@@ -68,6 +68,7 @@
 ;; 2019/06/27
 ;;      * Refactory code.
 ;;      * Fix error when no close tag exists.
+;;      * Adjust open overlay bound if not close tag.
 ;;
 ;; 2019/06/26
 ;;      * Use overlay re-implement code.
@@ -230,40 +231,52 @@
 (defun instant-rename-tag-after-change-function (begin end length)
   (when (and
          (derived-mode-p 'web-mode)
-         (instant-rename-tag-is-marking)
-         instant-rename-tag-open-overlay
-         instant-rename-tag-close-overlay)
-    (let* ((disable-company-mode (when (featurep 'company-mode)
-                                   (company-mode -1)))
-           (open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
-           (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
-           (close-tag-start-pos (overlay-start instant-rename-tag-close-overlay))
-           (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay)))
-      (cond ((and (>= (point) open-tag-start-pos)
-                  (<= (point) (+ 1 open-tag-end-pos)))
-             (when instant-rename-tag-close-overlay
+         (instant-rename-tag-is-marking))
+    (cond ((and instant-rename-tag-open-overlay
+                instant-rename-tag-close-overlay)
+           (let* ((disable-company-mode (when (featurep 'company-mode)
+                                          (company-mode -1)))
+                  (open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
+                  (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
+                  (close-tag-start-pos (overlay-start instant-rename-tag-close-overlay))
+                  (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay)))
+             (cond ((and (>= (point) open-tag-start-pos)
+                         (<= (point) (+ 1 open-tag-end-pos)))
+                    (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
+                      (save-excursion
+                        (delete-region close-tag-start-pos close-tag-end-pos)
+                        (goto-char close-tag-start-pos)
+                        (insert new-tag)
+                        (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
+                        (move-overlay instant-rename-tag-close-overlay (- (point) (length new-tag)) (point))
+                        )))
+                   ((and (>= (point) close-tag-start-pos)
+                         (<= (point) (+ 1 close-tag-end-pos)))
+                    (let* ((open-tag (buffer-substring open-tag-start-pos open-tag-end-pos))
+                           (current-point (max close-tag-end-pos (point)))
+                           (new-tag (buffer-substring close-tag-start-pos current-point))
+                           (tag-offset (- (length new-tag) (length open-tag)))
+                           (close-tag-new-start-pos (+ close-tag-start-pos tag-offset)))
+                      (save-excursion
+                        (delete-region open-tag-start-pos open-tag-end-pos)
+                        (goto-char open-tag-start-pos)
+                        (insert new-tag)
+                        (move-overlay instant-rename-tag-close-overlay close-tag-new-start-pos (+ close-tag-new-start-pos (length new-tag)))
+                        (move-overlay instant-rename-tag-open-overlay (- (point) (length new-tag)) (point))))
+                    ))))
+          (instant-rename-tag-open-overlay
+           (let* ((disable-company-mode (when (featurep 'company-mode)
+                                          (company-mode -1)))
+                  (open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
+                  (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay)))
+             (when (and (>= (point) open-tag-start-pos)
+                        (<= (point) (+ 1 open-tag-end-pos)))
                (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
                  (save-excursion
-                   (delete-region close-tag-start-pos close-tag-end-pos)
-                   (goto-char close-tag-start-pos)
-                   (insert new-tag)
                    (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
-                   (move-overlay instant-rename-tag-close-overlay (- (point) (length new-tag)) (point))
-                   ))))
-            ((and (>= (point) close-tag-start-pos)
-                  (<= (point) (+ 1 close-tag-end-pos)))
-             (let* ((open-tag (buffer-substring open-tag-start-pos open-tag-end-pos))
-                    (current-point (max close-tag-end-pos (point)))
-                    (new-tag (buffer-substring close-tag-start-pos current-point))
-                    (tag-offset (- (length new-tag) (length open-tag)))
-                    (close-tag-new-start-pos (+ close-tag-start-pos tag-offset)))
-               (save-excursion
-                 (delete-region open-tag-start-pos open-tag-end-pos)
-                 (goto-char open-tag-start-pos)
-                 (insert new-tag)
-                 (move-overlay instant-rename-tag-close-overlay close-tag-new-start-pos (+ close-tag-new-start-pos (length new-tag)))
-                 (move-overlay instant-rename-tag-open-overlay (- (point) (length new-tag)) (point))))
-             )))))
+                   ))
+               )))
+          )))
 
 (add-hook 'after-change-functions #'instant-rename-tag-after-change-function)
 
