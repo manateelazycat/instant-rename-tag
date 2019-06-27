@@ -22,3 +22,7 @@ Bind your favorite key to functions:
 | Function           | Description                                                               |
 | :--------          | :----                                                                     |
 | instant-rename-tag | Rename tag under current cursor, call this command again if rename finish |
+
+## Tips
+You don't need cancal tag mark manually by command ```instant-rename-tag```
+After you rename tag, tag will unmark automatically when you edit non-tag area continue.

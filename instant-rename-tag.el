@@ -6,8 +6,8 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
-;; Version: 0.4
-;; Last-Updated: 2019-06-27 14:54:14
+;; Version: 0.5
+;; Last-Updated: 2019-06-27 15:09:10
 ;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
@@ -69,6 +69,7 @@
 ;;      * Refactory code.
 ;;      * Fix error when no close tag exists.
 ;;      * Adjust open overlay bound if not close tag.
+;;      * Automatically cancel tag mark when editing non-tag area
 ;;
 ;; 2019/06/26
 ;;      * Use overlay re-implement code.
@@ -84,8 +85,6 @@
 
 ;;; TODO
 ;;
-;; * Try to remove web-mode depend.
-;; * Cancel mark after tag area not change, don't need cancel manually.
 ;;
 
 ;;; Require
@@ -262,20 +261,24 @@
                         (goto-char open-tag-start-pos)
                         (insert new-tag)
                         (move-overlay instant-rename-tag-close-overlay close-tag-new-start-pos (+ close-tag-new-start-pos (length new-tag)))
-                        (move-overlay instant-rename-tag-open-overlay (- (point) (length new-tag)) (point))))
-                    ))))
+                        (move-overlay instant-rename-tag-open-overlay (- (point) (length new-tag)) (point)))))
+                   (t
+                    (instant-rename-tag-unmark))
+                   )))
           (instant-rename-tag-open-overlay
            (let* ((disable-company-mode (when (featurep 'company-mode)
                                           (company-mode -1)))
                   (open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
                   (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay)))
-             (when (and (>= (point) open-tag-start-pos)
-                        (<= (point) (+ 1 open-tag-end-pos)))
-               (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
-                 (save-excursion
-                   (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
-                   ))
-               )))
+             (cond ((and (>= (point) open-tag-start-pos)
+                         (<= (point) (+ 1 open-tag-end-pos)))
+                    (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
+                      (save-excursion
+                        (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
+                        )))
+                   (t
+                    (instant-rename-tag-unmark))
+                   )))
           )))
 
 (add-hook 'after-change-functions #'instant-rename-tag-after-change-function)
