@@ -6,8 +6,8 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
-;; Version: 0.2
-;; Last-Updated: 2019-06-27 07:38:27
+;; Version: 0.3
+;; Last-Updated: 2019-06-27 14:29:02
 ;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
@@ -67,6 +67,7 @@
 ;;
 ;; 2019/06/27
 ;;      * Refactory code.
+;;      * Fix error when no close tag exists.
 ;;
 ;; 2019/06/26
 ;;      * Use overlay re-implement code.
@@ -83,7 +84,6 @@
 ;;; TODO
 ;;
 ;; * Try to remove web-mode depend.
-;; * Fix mark wrong place that not include close tag.
 ;; * Cancel mark after tag area not change, don't need cancel manually.
 ;;
 
@@ -139,25 +139,15 @@
         )))
 
   (ignore-errors
-    (let* ((close-tag-pos (save-excursion
-                            (instant-rename-tag-jump-to-match)
-                            (point)))
-           (start-pos (save-excursion
-                        (goto-char close-tag-pos)
-                        (forward-char 2)
-                        (point)))
-           (end-pos (save-excursion
-                      (goto-char start-pos)
-                      (unless (looking-at ">")
-                        (forward-symbol 1))
-                      (point))))
-      (when (and start-pos end-pos)
-        (set (make-local-variable 'instant-rename-tag-close-overlay) (make-overlay start-pos end-pos))
-        (overlay-put instant-rename-tag-close-overlay 'face 'instant-rename-tag-mark-face)
-        )))
+    (let ((close-tag-bound (instant-rename-tag-get-close-tag-bound)))
+      (if close-tag-bound
+          (let* ((start-pos (nth 0 close-tag-bound))
+                 (end-pos (nth 1 close-tag-bound)))
+            (set (make-local-variable 'instant-rename-tag-close-overlay) (make-overlay start-pos end-pos))
+            (overlay-put instant-rename-tag-close-overlay 'face 'instant-rename-tag-mark-face))
+        (set (make-local-variable 'instant-rename-tag-close-overlay) nil))))
 
-  (set (make-local-variable 'instant-rename-tag-is-mark) t)
-  )
+  (set (make-local-variable 'instant-rename-tag-is-mark) t))
 
 (defun instant-rename-tag-unmark ()
   (when instant-rename-tag-open-overlay
@@ -181,22 +171,53 @@
                 (search-backward-regexp "\\s-" open-tag-pos t))))))
 
 (defun instant-rename-tag-in-close-tag-p ()
-  (let ((close-tag-pos (save-excursion
-                         (instant-rename-tag-jump-to-match)
-                         (point))))
+  (let ((close-tag-pos
+         (save-excursion
+           (web-mode-element-beginning)
+           (cond ((looking-at "<>")
+                  (web-mode-tag-match))
+                 (t
+                  (sgml-skip-tag-forward 1)))
+           (search-backward-regexp "</")
+           (point))))
     (and (equal (line-number-at-pos close-tag-pos) (line-number-at-pos (point)))
          (save-excursion
            (search-backward-regexp "</" close-tag-pos t))
          (not (save-excursion
                 (search-backward-regexp "\\s-" close-tag-pos t))))))
 
-(defun instant-rename-tag-jump-to-match ()
-  (web-mode-element-beginning)
-  (cond ((looking-at "<>")
-         (web-mode-tag-match))
-        (t
-         (sgml-skip-tag-forward 1)))
-  (search-backward-regexp "</"))
+(defun instant-rename-tag-get-close-tag-bound ()
+  (save-excursion
+    (let (open-tag-start-pos
+          close-tag-start-pos
+          close-tag-end-pos)
+      ;; Move cursor to open tab beginning point.
+      (web-mode-element-beginning)
+      ;; Record beginning point.
+      (setq open-tag-start-pos (point))
+      ;; Jump to end tag.
+      (cond ((looking-at "<>")
+             (web-mode-tag-match))
+            (t
+             (sgml-skip-tag-forward 1)))
+      (search-backward-regexp "</")
+
+      (if (<= (point) open-tag-start-pos)
+          ;; Return nil if end tag point small than start tag beginning point.
+          nil
+        ;; Otherwise return close tag bound.
+        (setq close-tag-start-pos
+              (save-excursion
+                (forward-char 2)
+                (point)))
+        (setq close-tag-end-pos
+              (save-excursion
+                (goto-char close-tag-start-pos)
+                (unless (looking-at ">")
+                  (forward-symbol 1))
+                (point)))
+        (list close-tag-start-pos close-tag-end-pos)
+        ))))
 
 (defun instant-rename-tag-after-change-function (begin end length)
   (when (and
@@ -212,14 +233,15 @@
            (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay)))
       (cond ((and (>= (point) open-tag-start-pos)
                   (<= (point) (+ 1 open-tag-end-pos)))
-             (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
-               (save-excursion
-                 (delete-region close-tag-start-pos close-tag-end-pos)
-                 (goto-char close-tag-start-pos)
-                 (insert new-tag)
-                 (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
-                 (move-overlay instant-rename-tag-close-overlay (- (point) (length new-tag)) (point))
-                 )))
+             (when instant-rename-tag-close-overlay
+               (let ((new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
+                 (save-excursion
+                   (delete-region close-tag-start-pos close-tag-end-pos)
+                   (goto-char close-tag-start-pos)
+                   (insert new-tag)
+                   (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
+                   (move-overlay instant-rename-tag-close-overlay (- (point) (length new-tag)) (point))
+                   ))))
             ((and (>= (point) close-tag-start-pos)
                   (<= (point) (+ 1 close-tag-end-pos)))
              (let* ((open-tag (buffer-substring open-tag-start-pos open-tag-end-pos))
