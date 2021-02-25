@@ -6,8 +6,8 @@
 ;; Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
 ;; Copyright (C) 2019, Andy Stewart, all rights reserved.
 ;; Created: 2019-03-14 22:14:00
-;; Version: 0.6
-;; Last-Updated: 2019-06-27 20:07:21
+;; Version: 0.7
+;; Last-Updated: 2021-02-25 16:04:34
 ;;           By: Andy Stewart
 ;; URL: http://www.emacswiki.org/emacs/download/instant-rename-tag.el
 ;; Keywords:
@@ -41,6 +41,8 @@
 ;; It's wonderful if we can rename tag instantly, not rename from minibuffer.
 ;; And yes, this plugin is design for do this.
 ;;
+;; Move cursor to tag area, execute command `instant-rename-tag', press SPACE to finish rename.
+;;
 
 ;;; Installation:
 ;;
@@ -64,6 +66,9 @@
 ;;
 
 ;;; Change log:
+;;
+;; 2021/02/25
+;;      * Press SPACE to exit rename action.
 ;;
 ;; 2019/06/27
 ;;      * Refactory code.
@@ -289,32 +294,33 @@
       ;; Temp turn off company-mode if company mode is active.
       (when company-mode-is-active
         (company-mode -1))
-      (cond
-       ;; Sync tag content if open tag and close tag all exists.
-       ((and instant-rename-tag-open-overlay
-             instant-rename-tag-close-overlay)
+
+      (if (string-equal (buffer-substring begin end) " ")
+          ;; Exit rename status when found user press SPACE.
+          (progn
+            (backward-delete-char 1)
+            (instant-rename-tag-unmark))
         (cond
-         ;; Sync content to close tag if cursor in open tag area.
-         ((instant-rename-tag-in-open-tag-overlay)
-          (instant-rename-tag-sync-close-tag))
-         ;; Sync content to open tag if cursor in close tag area.
-         ((instant-rename-tag-in-close-tag-overlay)
-          (instant-rename-tag-sync-open-tag))
-         ;; Otherwise unmark tag area.
-         (t
-          (instant-rename-tag-unmark))
-         ))
-       ;; Update open tag overlay bound if just have open tag.
-       (instant-rename-tag-open-overlay
-        (cond
-         ;; Update open tag overlay bound if cursor in open tag area.
-         ((instant-rename-tag-in-open-tag-overlay)
-          (instant-rename-tag-update-open-tag-bound))
-         ;; Otherwise unmark tag area.
-         (t
-          (instant-rename-tag-unmark))
-         )))
-      ;; Turn on company-mode if company mode is active before rename tag action.
+         ;; Sync tag content if open tag and close tag all exists.
+         ((and instant-rename-tag-open-overlay
+               instant-rename-tag-close-overlay)
+          (cond
+           ;; Sync content to close tag if cursor in open tag area.
+           ((instant-rename-tag-in-open-tag-overlay)
+            (instant-rename-tag-sync-close-tag))
+           ;; Sync content to open tag if cursor in close tag area.
+           ((instant-rename-tag-in-close-tag-overlay)
+            (instant-rename-tag-sync-open-tag))
+           ))
+         ;; Update open tag overlay bound if just have open tag.
+         (instant-rename-tag-open-overlay
+          (cond
+           ;; Update open tag overlay bound if cursor in open tag area.
+           ((instant-rename-tag-in-open-tag-overlay)
+            (instant-rename-tag-update-open-tag-bound))
+           ))))
+
+      ;; Turn on company-mode if company mode is active after rename tag action.
       (when company-mode-is-active
         (company-mode 1))
       )))
