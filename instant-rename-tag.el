@@ -238,7 +238,7 @@
          (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
          (close-tag-start-pos (overlay-start instant-rename-tag-close-overlay))
          (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay))
-         (new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
+         (new-tag (buffer-substring-no-properties open-tag-start-pos (max open-tag-end-pos (point)))))
     (save-excursion
       (delete-region close-tag-start-pos close-tag-end-pos)
       (goto-char close-tag-start-pos)
@@ -252,9 +252,9 @@
          (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
          (close-tag-start-pos (overlay-start instant-rename-tag-close-overlay))
          (close-tag-end-pos (overlay-end instant-rename-tag-close-overlay))
-         (open-tag (buffer-substring open-tag-start-pos open-tag-end-pos))
+         (open-tag (buffer-substring-no-properties open-tag-start-pos open-tag-end-pos))
          (current-point (max close-tag-end-pos (point)))
-         (new-tag (buffer-substring close-tag-start-pos current-point))
+         (new-tag (buffer-substring-no-properties close-tag-start-pos current-point))
          (tag-offset (- (length new-tag) (length open-tag)))
          (close-tag-new-start-pos (+ close-tag-start-pos tag-offset)))
     (save-excursion
@@ -279,7 +279,7 @@
 (defun instant-rename-tag-update-open-tag-bound ()
   (let* ((open-tag-start-pos (overlay-start instant-rename-tag-open-overlay))
          (open-tag-end-pos (overlay-end instant-rename-tag-open-overlay))
-         (new-tag (buffer-substring open-tag-start-pos (max open-tag-end-pos (point)))))
+         (new-tag (buffer-substring-no-properties open-tag-start-pos (max open-tag-end-pos (point)))))
     (save-excursion
       (move-overlay instant-rename-tag-open-overlay open-tag-start-pos (+ open-tag-start-pos (length new-tag)))
       )))
@@ -295,7 +295,7 @@
       (when company-mode-is-active
         (company-mode -1))
 
-      (if (string-equal (buffer-substring begin end) " ")
+      (if (string-equal (buffer-substring-no-properties begin end) " ")
           ;; Exit rename status when found user press SPACE.
           (progn
             (backward-delete-char 1)
